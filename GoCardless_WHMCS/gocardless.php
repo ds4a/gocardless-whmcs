@@ -28,6 +28,17 @@
     ** This method is used by WHMCS to establish the configuration information
     ** used within the admin interface. These params are then stored in `tblpaymentgateways`
     **/
+    
+    function ds4agocardless_MetaData()
+{
+    return array(
+        'DisplayName' => 'DS4A GoCardless Direct Debit',
+        'APIVersion' => '1.1', // Use API Version 1.1
+        'DisableLocalCredtCardInput' => true,
+        'TokenisedStorage' => false,
+    );
+}
+    
     function ds4agocardless_config() {
 
         global $CONFIG;
@@ -40,7 +51,7 @@
         $aConfig = array(
             'FriendlyName' => array(
                 'Type' => 'System',
-                'Value' => 'Direct Debit'
+                'Value' => 'Direct Debit (DS4A GoCardless)'
             ),
             'UsageNotes' => array(
                 'Type' => 'System',
@@ -493,3 +504,4 @@
         }
 
     }
+
