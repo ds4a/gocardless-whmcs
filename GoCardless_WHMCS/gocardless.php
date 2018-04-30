@@ -5,13 +5,17 @@
     * @author WHMCSRC <info@whmcs.com>
     * @version 1.1.0
     *
-    * @fork author: York UK Hosting <github@yorkukhosting.com>
-    * @fork version: 1.1.0-YUH
-    * @fork github: http://github.com/yorkukhosting/gocardless-whmcs/
+    * @fork author: DS4A <github@ds4a.co.uk>
+    * @fork version: 1.0.0-DS4A
+    * @fork github: http://github.com/ds4a/gocardless-whmcs/
     */
 
+    if (!defined("WHMCS")) {
+    die("This file cannot be accessed directly");
+}
+
     # load GoCardless library
-    require_once ROOTDIR . '/modules/gateways/gocardless/GoCardless.php';
+    require_once ROOTDIR . '/modules/gateways/ds4agocardless/GoCardless.php';
 
     define('GC_VERSION', '1.1.0');
 
@@ -24,7 +28,7 @@
     ** This method is used by WHMCS to establish the configuration information
     ** used within the admin interface. These params are then stored in `tblpaymentgateways`
     **/
-    function gocardless_config() {
+    function ds4agocardless_config() {
 
         global $CONFIG;
         if (!empty($CONFIG['SystemSSLURL']) && $CONFIG['SystemSSLURL'] != "") {
@@ -36,7 +40,7 @@
         $aConfig = array(
             'FriendlyName' => array(
                 'Type' => 'System',
-                'Value' => 'GoCardless'
+                'Value' => 'Direct Debit'
             ),
             'UsageNotes' => array(
                 'Type' => 'System',
@@ -110,7 +114,7 @@
     * and sets appropriate details against GoCardless object
     * @param array $params Array of parameters that contains gateway details
     */
-    function gocardless_set_account_details($params=null) {
+    function ds4agocardless_set_account_details($params=null) {
 
         # check if params have been supplied, if not attempt
         # to use global params
@@ -160,17 +164,17 @@
     /**
     ** Builds the payment link for WHMCS users to be redirected to GoCardless
     **/
-    function gocardless_link($params) {
+    function ds4agocardless_link($params) {
 
         # get global config params
         global $CONFIG;
 
         # create GoCardless database if it hasn't already been created
-        gocardless_createdb();
+        ds4agocardless_createdb();
 
         # check the invoice, to see if it has a record with a valid resource ID. If it does, the invoice is pending payment.
         # we will return a message on the invoice to prevent duplicate payment attempts
-        $aGC = mysql_fetch_assoc(select_query('mod_gocardless','id,payment_failed', array('invoiceid' => $params['invoiceid'], 'resource_id' => array('sqltype' => 'NEQ', 'value' => ''))));
+        $aGC = mysql_fetch_assoc(select_query('mod_ds4agocardless','id,payment_failed', array('invoiceid' => $params['invoiceid'], 'resource_id' => array('sqltype' => 'NEQ', 'value' => ''))));
         if ($aGC['id']) {
             if($aGC['payment_failed'] == 0) {
                 # Pending Payment Found - Prevent Duplicate Payment with a Msg
@@ -292,10 +296,10 @@
     **
     ** @param array $params Array of paramaters parsed by WHMCS
     **/
-    function gocardless_capture($params) {
+    function ds4agocardless_capture($params) {
 
         # create GoCardless DB if it hasn't already been created
-        gocardless_createdb();
+        ds4agocardless_createdb();
 
         # grab the gateway information from WHMCS
         $gateway = getGatewayVariables('gocardless');
@@ -304,7 +308,7 @@
         gocardless_set_account_details($params);
 
         # check against the database if the bill relevant to this invoice has already been created
-        $existing_payment_query = select_query('mod_gocardless', 'resource_id', array('invoiceid' => $params['invoiceid']));
+        $existing_payment_query = select_query('mod_ds4agocardless', 'resource_id', array('invoiceid' => $params['invoiceid']));
         $existing_payment = mysql_fetch_assoc($existing_payment_query);
 
         # check if any rows have been returned or if the returned result is empty.
@@ -321,7 +325,7 @@
                  if (!empty($userid_result['userid'])) {
                     $userid = $userid_result['userid'];
                     
-                    $preauth_query = select_query('mod_gocardless_preauth','subscriptionid',array('userid' => $userid));
+                    $preauth_query = select_query('mod_ds4agocardless_preauth','subscriptionid',array('userid' => $userid));
                     $preauth_result = mysql_fetch_array($preauth_query);
             
                       if (!empty($preauth_result['subscriptionid'])) {
@@ -349,7 +353,7 @@
                     } catch (Exception $e) {
                         # we failed to create a new bill, lets update mod_gocardless to alert the admin why payment hasnt been received,
                         # log this in the transaction log and exit out
-                        update_query('mod_gocardless', array('payment_failed' => 1),array('invoiceid' => $params['invoiceid']));
+                        update_query('mod_ds4agocardless', array('payment_failed' => 1),array('invoiceid' => $params['invoiceid']));
                         logTransaction($params['paymentmethod'],"Failed to create GoCardless bill against pre-authorization " . $preauthid . " for invoice " . $params['invoiceid'] . ": " . print_r($e,true) . print_r($bill,true),'Failed');
                         return array('status' => 'error', 'rawdata' => $e);
                     }
@@ -377,7 +381,7 @@
 
                         } else {
                             # update the table with the bill ID
-                            update_query('mod_gocardless', array('billcreated' => 1, 'resource_id' => $bill->id), array('invoiceid' => $params['invoiceid']));
+                            update_query('mod_ds4agocardless', array('billcreated' => 1, 'resource_id' => $bill->id), array('invoiceid' => $params['invoiceid']));
                         }
 
                     }
@@ -410,12 +414,12 @@
     /**
     ** Supress credit card request on checkout
     **/
-    function gocardless_nolocalcc() {}
+    function ds4agocardless_nolocalcc() {}
 
     /**
     ** Create mod_gocardless table if it does not already exist
     **/
-    function gocardless_createdb() {
+    function ds4agocardless_createdb() {
         # check the table exists
         if(mysql_num_rows(full_query("SHOW TABLES LIKE 'mod_gocardless'"))) {
             # the table exists, check its at the latest version
@@ -433,7 +437,7 @@
             }
         } else {
             # create the new table
-            $query = "CREATE TABLE IF NOT EXISTS `mod_gocardless` (
+            $query = "CREATE TABLE IF NOT EXISTS `mod_ds4agocardless` (
             `id` int(11) NOT NULL auto_increment,
             `invoiceid` int(11) NOT NULL,
             `billcreated` int(11) default NULL,
@@ -449,7 +453,7 @@
             full_query($query);
 
             # create the new table
-            $query = "CREATE TABLE IF NOT EXISTS `mod_gocardless_preauth` (
+            $query = "CREATE TABLE IF NOT EXISTS `mod_ds4agocardless_preauth` (
             `id` int(11) NOT NULL auto_increment,
             `userid` int(10) NOT NULL,
             `subscriptionid` varchar(16) default NULL,
@@ -466,12 +470,12 @@
     ** Display payment status message to admin when the preauth
     ** has been setup but the payment is incomplete
     **/
-    function gocardless_adminstatusmsg($vars) {
+    function ds4agocardless_adminstatusmsg($vars) {
 
         if ($vars['status']=='Unpaid') {
 
             # get relevant invoice information from the database
-            $d = select_query('mod_gocardless',"id,payment_failed",array('invoiceid' => $vars['invoiceid']));
+            $d = select_query('mod_ds4agocardless',"id,payment_failed",array('invoiceid' => $vars['invoiceid']));
             $aResult = mysql_fetch_assoc($d);
 
             # check we have been able to obtain the details
